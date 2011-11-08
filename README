@@ -1,0 +1,13 @@
+command line tool for geocoding lists of addresses
+
+requires the pygeo module available at http://code.google.com/p/geopy
+pygeo is installable with pip as well.
+
+
+Opens a csv sheet and geocodes addresses using googles maps api but is limited by the public API restrictions to 2500 geocoding actions per day.
+
+If the script is in your bin directory (without the file extension) the command to use tool looks like 'clgeo file.csv [--header N] [--adr_loc N N]', otherwise python clgeo.py etc.
+
+optional parameter --header n allows for the skipping of header rows in the sheet, EX --header 2 would skip the first two rows, --header 0 skips no rows. The default is to skip the first row.
+
+optional parameter --adr_loc n n n+ allows for the combination of multiple columns of data to create a full address. EX --adr_loc 0 1 3 would combine columns 0, 1 and 3 into one string before submitting the address to google. The default is to look for the full address in the first column.
