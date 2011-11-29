@@ -32,8 +32,8 @@ sheet_reader = csv.reader(open(file_path + '/' +  args.filename, 'rb'))
 
 name_and_ext = args.filename.split('.') #splits name around the . , use the part before the . for new file name
 
-output_writer = open(file_path + '/' +  name_and_ext[0] +'_geocoded.csv', 'w')
-
+#output_writer = open(file_path + '/' +  name_and_ext[0] +'_geocoded.csv', 'w')
+output_writer = csv.writer(open(file_path + '/' + args.filename + '_geocoded', 'wb'))
 
 g = geocoders.Google()
 
@@ -45,8 +45,16 @@ for line in sheet_reader:
         adr_components = []
         send_adr = ''
 
-        for grab_cell in args.adr_loc: #loop through adr_loc numbers provided by the user, adding contents to list
-            adr_components.append(line[int(grab_cell)])
+        nonadr_cells = []
+
+        for col_num, cell in enumerate(line):
+            if col_num in args.adr_loc:
+                adr_components.append(cell)
+            else:
+                nonadr_cells.append(cell)
+
+        #for grab_cell in args.adr_loc: #loop through adr_loc numbers provided by the user, adding contents to list
+        #    adr_components.append(line[int(grab_cell)])
 
         adr_components = [c.strip() for c in adr_components] #remove extra whitespace
         
@@ -70,10 +78,26 @@ for line in sheet_reader:
             google_return = error_pack,
             print "unknown error at row " + str(line_count) + ", " + str(send_adr) + ", pressing on"
 
+        output_row = []
 
         for result in google_return:
+            
+            g_result = []
+
             place, (lat, lng) = result
-            output_writer.write(send_adr + "," + str(len(google_return)) + ",%s, %.5f, %.5f" % (place, lat, lng) + "\n")
+            place = encode('ascii','ignore') #unicode issues, more cleaning needs to be done on the place string
+
+            g_result = g_result.append(send_adr)
+            g_result = g_result.append(place)
+            g_result = g_result.append(str(len(google_return)))
+            g_result = g_result.append(lat)
+            g_result = g_result.append(lng)
+
+            output_row = output_row.append(g_result)
+            output_row = output_row.append(nonadr_cells)
+
+            outputwriter.writerrow(output_row)
+            #output_writer.write(send_adr + "," + str(len(google_return)) + ",%s, %.5f, %.5f" % (place, lat, lng) + "\n")
         
         time.sleep(.5) #keeps google happy
 
