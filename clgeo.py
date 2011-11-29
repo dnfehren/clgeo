@@ -16,45 +16,57 @@ import os, sys, time, string, argparse
 import csv
 from geopy import geocoders #http://code.google.com/p/geopy/, install available with pip
 
-file_path = os.getcwd()
+#import pprint
+#pp = pprint.PrettyPrinter(indent=4)
 
 parser = argparse.ArgumentParser(description='Process addresses, retrieve lat/lon from google maps API.')
 
-parser.add_argument('filename', help='path to a csv file of that containes some addresses')
-parser.add_argument('--adr_loc', default=0, nargs='*', 
+parser.add_argument('filename', 
+                    help='path to a csv file of that containes some addresses')
+
+parser.add_argument('--adr_loc', 
+                    default=0, 
+                    nargs='*',
+                    dest='adr_loc',
                     help='where is the address information, default is col 0, multiple columns can be defined ex adr_loc 0 1 2')
-parser.add_argument('--header', default=1, type=int, help='number of header rows to skip, default is 1')
+
+parser.add_argument('--header', 
+                    default=1, 
+                    type=int, 
+                    help='number of header rows to skip, default is 1')
 
 args = parser.parse_args()
 
+full_file_path = os.path.abspath(args.filename)
+(path, source_file) = os.path.split(full_file_path)
+(file_name, file_ext) = os.path.splitext(source_file)
 
-sheet_reader = csv.reader(open(file_path + '/' +  args.filename, 'rb'))
+output_file_name = file_name + '_geocoded' + file_ext
+output_file_path = os.path.join(path, output_file_name)
 
-name_and_ext = args.filename.split('.') #splits name around the . , use the part before the . for new file name
 
-#output_writer = open(file_path + '/' +  name_and_ext[0] +'_geocoded.csv', 'w')
-output_writer = csv.writer(open(file_path + '/' + args.filename + '_geocoded', 'wb'))
+sheet_reader = csv.reader(open(full_file_path, 'rb'))
+output_writer = csv.writer(open(output_file_path, 'wb'))
+
 
 g = geocoders.Google()
 
-line_count = 0
+line_count = 1
+
+adr_pos = args.adr_loc
+
+if type(args.adr_loc) is not list: #the adr_loc could be a single number, but the loop below needs a list
+    adr_pos = [ str(args.adr_loc) ]
 
 for line in sheet_reader:
-    if line_count >= int(args.header): #if the line count is less than or equal to the header count
+    if line_count >= int(args.header) + 1: #if the line count is less than or equal to the header count
 
         adr_components = []
         send_adr = ''
 
-        nonadr_cells = []
-
         for col_num, cell in enumerate(line):
-            if col_num in args.adr_loc:
+            if str(col_num) in adr_pos:
                 adr_components.append(cell)
-            else:
-                nonadr_cells.append(cell)
-
-        #for grab_cell in args.adr_loc: #loop through adr_loc numbers provided by the user, adding contents to list
-        #    adr_components.append(line[int(grab_cell)])
 
         adr_components = [c.strip() for c in adr_components] #remove extra whitespace
         
@@ -78,27 +90,36 @@ for line in sheet_reader:
             google_return = error_pack,
             print "unknown error at row " + str(line_count) + ", " + str(send_adr) + ", pressing on"
 
-        output_row = []
-
         for result in google_return:
             
             g_result = []
 
             place, (lat, lng) = result
-            place = encode('ascii','ignore') #unicode issues, more cleaning needs to be done on the place string
+            place = place.encode('ascii','ignore') #unicode issues, more cleaning needs to be done on the place string
 
-            g_result = g_result.append(send_adr)
-            g_result = g_result.append(place)
-            g_result = g_result.append(str(len(google_return)))
-            g_result = g_result.append(lat)
-            g_result = g_result.append(lng)
+            g_result.append(send_adr) #the raw address that was sent to google
+            g_result.append(place) #the place address that was returned from google
 
-            output_row = output_row.append(g_result)
-            output_row = output_row.append(nonadr_cells)
+            if lat == 0: 
+                #if lat is 0/zero then there was an error in the API processing
+                # note that in the output
+                g_result.append('error')
+            if not place[0].isdigit():
+                #if the returned place name doesnt start with a number its probably
+                # a general place returned as the closest match, this should be noted
+                g_result.append('potential_error')    
+            else:
+                #otherwise output how many results come back for that address
+                #TODO this could use some better grouping, some kind of unique id
+                g_result.append(str(len(google_return)))
+            
+            g_result.append(lat) #the lattitute from google
+            g_result.append(lng) #the longitude from google
 
-            outputwriter.writerrow(output_row)
-            #output_writer.write(send_adr + "," + str(len(google_return)) + ",%s, %.5f, %.5f" % (place, lat, lng) + "\n")
-        
+            output_row = line + g_result #add the result data to the end of the source data
+
+            output_writer.writerow(output_row)
+
         time.sleep(.5) #keeps google happy
 
     print str(line_count) + ' row complete'
