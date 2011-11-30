@@ -1,24 +1,34 @@
 #!/usr/bin/env python
 
-#dfehrenbach@cntenergy.org
-#
-#opens as csv file at a location provided by the user
-#optionally - skips header row(s)
-#optionally - combines multiple columns to make a single address string
-#passess the address string to the google geocoder
-#writes the geocoding result and all existing data to a new csv sheet (sheetname_geocoded.csv)
-# if an address has more than one geocode result all are printed to sheet
-# if errors are encountered they will be noted on the output sheet as well
-#
-#google has a 2500 per day limit of addresses, so keep this in mind
-# http://code.google.com/apis/maps/documentation/geocoding
+'''
+a command line utility for geocoding addresses in spreadsheets
+by Dan Fehrenbach, dfehrenbach@cntenergy.org
+
+The script will...
+1.open a csv file at a location provided by the user
+    optionally - skips header row(s) based on user input
+    optionally - combines multiple columns to make a single address string based on user input
+2.pass the address string to the google geocoder
+3.append the geocoding result to the sheet row's existing data in a new csv sheet (sheetname_geocoded.csv)
+    if an address has more than one geocode result all are printed to sheet
+    if errors are encountered they will be noted on the output sheet as well
+
+Limitations...
+-requires the geopy library (installable through pip)
+    http://code.google.com/p/geopy/
+-google has a 2500 per day limit of addresses
+    http://code.google.com/apis/maps/documentation/geocoding
+'''
 
 import os, sys, time, string, argparse
 import csv
-from geopy import geocoders #http://code.google.com/p/geopy/, install available with pip
+from geopy import geocoders 
 
 #import pprint
 #pp = pprint.PrettyPrinter(indent=4)
+
+#from http://stackoverflow.com/questions/1342000/how-to-replace-non-ascii-characters-in-string
+def removeNonAscii(s): return "".join(i for i in s if ord(i)<128)
 
 parser = argparse.ArgumentParser(description='Process addresses, retrieve lat/lon from google maps API.')
 
@@ -73,6 +83,7 @@ for line in sheet_reader:
                 adr_components.append(cell)
 
         adr_components = [c.strip() for c in adr_components] #remove extra whitespace
+        adr_components = [removeNonAscii(cell) for cell in adr_components] #remove non-ascii characters
         
         send_adr = ' '.join(adr_components) #join the list components with a space between each
 
@@ -101,7 +112,10 @@ for line in sheet_reader:
             g_result = []
 
             place, (lat, lng) = result
-            place = place.encode('ascii','ignore') #unicode issues, more cleaning needs to be done on the place string
+            
+            #unicode issues, more cleaning needs to be done on the place string
+            place = removeNonAscii(place)
+            place = place.encode('ascii','ignore') 
 
             g_result.append(send_adr) #the raw address that was sent to google
             g_result.append(place) #the place address that was returned from google
